@@ -12,7 +12,7 @@ This repository accompanies my ThunderPlains 2026 talk. It contains the slides a
 
 | | |
 |---|---|
-| [`index.html`](index.html) | The demo: a scripted, self-contained page that plays the four demo scenarios with synthetic data |
+| [`index-2.html`](index-2.html) | The demo: a scripted, self-contained page that plays the four demo scenarios with synthetic data |
 | [`slides/`](slides/) | The talk slides (PDF) |
 
 ## The talk
