@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart City Testbed Demo</title>
+<meta name="description" content="A static walkthrough of the ThunderPlains 2026 demos: sensors, radio interference, a silent sensor and a hijacked delivery drone, played back with synthetic data.">
+<style>
+  :root {
+    --bg: #070b11; --panel: #0d141d; --panel-2: #111b26; --line: #1d2a38; --line-2: #2a3a4c;
+    --text: #e6edf3; --muted: #8b9bb0; --faint: #5b6b80;
+    --ok: #2fd18b; --warn: #f5b13d; --bad: #ff5a5a; --info: #59a8ff;
+    --drone-a: #2ee6a6; --drone-b: #3cc8f5; --off: #ff4d4d;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  body { min-height: 100vh; }
+  button { font: inherit; color: inherit; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .brand { flex: 1 1 320px; min-width: 0; }
+  .brand h1 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: .01em; }
+  .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: #3d5268; }
+  .btn.primary { background: #16324a; border-color: #2b5b82; min-width: 84px; }
+  .btn[aria-pressed="true"] { background: #16324a; border-color: #2b5b82; }
+  .clock { font-family: var(--mono); font-size: 13px; color: var(--muted); padding: 0 4px; min-width: 64px; text-align: right; }
+
+  nav.chapters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 20px 0; }
+  .chapter { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer; position: relative; overflow: hidden; }
+  .chapter .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .chapter .t { display: block; font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+  .chapter .fill { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--info); width: 0; }
+  .chapter.active { border-color: #2b5b82; background: var(--panel-2); }
+
+  .caption { margin: 12px 20px 0; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--info); border-radius: 10px; }
+  .caption .pattern { font-family: var(--mono); font-size: 11.5px; color: var(--info); text-transform: uppercase; letter-spacing: .06em; }
+  .caption h2 { margin: 3px 0 4px; font-size: 16px; }
+  .caption p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; max-width: 980px; }
+
+  main.grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 14px; padding: 14px 20px 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .panel h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; display: flex; justify-content: space-between; gap: 8px; }
+  .panel h3 span.sub { text-transform: none; letter-spacing: 0; color: var(--faint); font-weight: 500; }
+  .sensors { grid-column: 1; grid-row: 1; }
+  .map { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; }
+  .events { grid-column: 1; grid-row: 2; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .card { background: var(--panel-2); border: 1px solid var(--line); border-top: 3px solid var(--ok); border-radius: 10px; padding: 10px 11px; transition: filter .4s, opacity .4s, border-color .3s, box-shadow .3s; min-width: 0; }
+  .card.degraded { border-top-color: var(--bad); box-shadow: 0 0 0 1px #ff5a5a33, 0 0 18px #ff5a5a1f; }
+  .card.offline { filter: grayscale(1); opacity: .5; border-top-color: var(--faint); }
+  .card .row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 6px; flex-wrap: wrap; }
+  .card .name { font-weight: 650; font-size: 13.5px; }
+  .chip { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .card .kind { font-size: 11.5px; color: var(--faint); margin-top: 1px; }
+  .card .value { font-family: var(--mono); font-size: 22px; font-weight: 600; margin-top: 8px; }
+  .card .value small { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+  .card .signal { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .card svg { display: block; width: 100%; height: 30px; margin-top: 6px; }
+  .pill { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .05em; padding: 2px 7px; border-radius: 999px; }
+  .pill.ok { color: var(--ok); background: #2fd18b1a; }
+  .pill.degraded { color: var(--bad); background: #ff5a5a1f; }
+  .pill.offline { color: var(--muted); background: #8b9bb01f; }
+
+  .counters { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .counter { flex: 1 1 140px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .counter b { font-family: var(--mono); font-size: 20px; display: block; }
+  .counter span { font-size: 12px; color: var(--muted); }
+  ol.log { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+  ol.log li { display: grid; grid-template-columns: 58px 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 7px 4px; border-top: 1px solid var(--line); font-size: 13px; animation: in .35s ease-out; }
+  ol.log li:first-child { border-top: none; }
+  ol.log .time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+  ol.log .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  ol.log .msg { min-width: 0; }
+  ol.log .state { font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+  .sev-critical .dot { background: var(--bad); } .sev-warning .dot { background: var(--warn); } .sev-info .dot { background: var(--info); } .sev-ok .dot { background: var(--ok); }
+  .state.pending { color: var(--warn); background: #f5b13d1f; } .state.firing { color: var(--bad); background: #ff5a5a1f; } .state.resolved { color: var(--ok); background: #2fd18b1a; }
+  .empty { color: var(--faint); font-size: 13px; padding: 8px 4px; }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  .canvas-wrap { position: relative; flex: 1; min-height: 420px; border-radius: 10px; overflow: hidden; background: #05080d; border: 1px solid var(--line); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .drones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .drone { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--drone-a); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; min-width: 0; }
+  .drone.b { border-left-color: var(--drone-b); }
+  .drone.off { border-left-color: var(--off); box-shadow: 0 0 0 1px #ff4d4d33; }
+  .drone b { font-size: 13px; }
+  .drone .st { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drone.off .st { color: var(--off); }
+
+  footer { padding: 4px 20px 22px; color: var(--faint); font-size: 12px; line-height: 1.6; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 980px) {
+    main.grid { grid-template-columns: minmax(0, 1fr); }
+    .sensors, .map, .events { grid-column: 1; grid-row: auto; }
+    .canvas-wrap { min-height: 380px; }
+  }
+  @media (max-width: 640px) {
+    header.top, nav.chapters, main.grid { padding-left: 16px; padding-right: 16px; }
+    .caption { margin-left: 16px; margin-right: 16px; }
+    nav.chapters { grid-template-columns: repeat(2, 1fr); }
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .drones { grid-template-columns: 1fr; }
+    .canvas-wrap { min-height: 340px; }
+    ol.log li { grid-template-columns: 50px 10px minmax(0, 1fr); }
+    ol.log .state { grid-column: 3; justify-self: start; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>When Every Device Speaks a Different Language</h1>
+    <p>A static walkthrough of the ThunderPlains 2026 demos · synthetic data, played back in your browser</p>
+  </div>
+  <div class="controls">
+    <button class="btn primary" id="play" aria-label="Pause">❚❚ Pause</button>
+    <button class="btn" id="restart" aria-label="Restart">↺ Restart</button>
+    <button class="btn speed" data-speed="1" aria-pressed="true">1×</button>
+    <button class="btn speed" data-speed="2" aria-pressed="false">2×</button>
+    <button class="btn speed" data-speed="4" aria-pressed="false">4×</button>
+    <span class="clock" id="clock">T+00:00</span>
+  </div>
+</header>
+
+<nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+
+<section class="caption" aria-live="polite">
+  <div class="pattern" id="cap-pattern"></div>
+  <h2 id="cap-title"></h2>
+  <p id="cap-text"></p>
+</section>
+
+<main class="grid">
+  <section class="panel sensors">
+    <h3>Sensors <span class="sub">one reading every 2 s each</span></h3>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="panel map">
+    <h3>Drone deliveries <span class="sub">top view · metres</span></h3>
+    <div class="drones" id="drones"></div>
+    <div class="canvas-wrap"><canvas id="map" aria-label="Map of two delivery drones, their routes and allowed zones"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--drone-a)"></i>Drone A</span>
+      <span><i style="background:var(--drone-b)"></i>Drone B</span>
+      <span><i style="background:var(--off)"></i>off route</span>
+      <span><i style="background:repeating-linear-gradient(90deg,#8b9bb0 0 4px,transparent 4px 7px)"></i>planned route</span>
+    </div>
+  </section>
+
+  <section class="panel events">
+    <h3>Events <span class="sub">what an operator would be shown</span></h3>
+    <div class="counters">
+      <div class="counter"><b id="n-readings">0</b><span>readings received</span></div>
+      <div class="counter"><b id="n-events">0</b><span>events shown to a person</span></div>
+    </div>
+    <ol class="log" id="log"></ol>
+  </section>
+</main>
+
+<footer>
+  Everything on this page is synthetic and scripted: no real sensor data, flight recordings or production code.
+  It illustrates the ideas from the talk “When Every Device Speaks a Different Language: Building Resilient Event-Driven Systems”
+  (ThunderPlains 2026, Oklahoma City) by Fatemeh Azam.
+</footer>
+
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// A scripted scenario. Everything is computed once at load as a function of the
+// scenario clock t (seconds), so play, pause and jumping between chapters are
+// just "show what had happened by time t".
+// ─────────────────────────────────────────────────────────────────────────────
+const T_END = 108;
+
+const CHAPTERS = [
+  { t: 0,  title: 'A calm city', pattern: 'Pattern 1 · publish, don\'t call  ·  Pattern 2 · translate once, at the door',
+    text: 'Six very different devices (a traffic camera, an environment station, a patient monitor, traffic lights, a 433 MHz alarm and a GPS receiver) all publish to one event bus, in one message shape. Nothing talks to anything else directly, and nothing on this screen knows what hardware sent a reading.' },
+  { t: 14, title: 'Radio interference', pattern: 'Pattern 4 · one cause, one alert',
+    text: 'A 2.4 GHz interference source switches on. The four Wi-Fi devices degrade one after another, but you get one incident, not a flood of alerts. It waits until the trouble has lasted 2 seconds, groups devices by radio band, and only resolves once the signal is clearly back. GPS and the 433 MHz alarm stay healthy.' },
+  { t: 46, title: 'A sensor goes quiet', pattern: 'Pattern 5 · silence is data',
+    text: 'Building B stops sending. Nothing arrives, so a naive dashboard would keep showing its last good value. Here, 5 seconds of nothing is an event: the card greys out and says when it last heard from the sensor.' },
+  { t: 64, title: 'A hijacked delivery', pattern: 'Pattern 5 again · judge silence and position against the mission',
+    text: 'Two drones fly delivery missions registered before takeoff. Mid-flight, Drone A is pulled off its route into Drone B\'s airspace. Because the system knows each mission, it can tell an attack from a normal delivery, and it says so in one alert.' },
+];
+
+// Seeded random numbers, so every visitor sees the same run.
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = rng(2026);
+const noise = (sd) => (rand() + rand() + rand() - 1.5) * sd * 1.4;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (u) => u * u * (3 - 2 * u);
+
+// ── Sensors ─────────────────────────────────────────────────────────────────
+const NODES = [
+  { id: 'building-a',   name: 'Building A',   kind: 'Traffic camera',       band: '2.4 GHz', wifi: true,  rssi: -56, value: (t, I) => [15 * (1 - .75 * I) + noise(.4), 'fps', 1] },
+  { id: 'building-b',   name: 'Building B',   kind: 'Environment station',  band: '2.4 GHz', wifi: true,  rssi: -61, value: (t) => [41 + 1.5 * Math.sin(t / 20) + noise(.15), '% RH', 1] },
+  { id: 'clinic',       name: 'Clinic',       kind: 'Patient monitor',      band: '2.4 GHz', wifi: true,  rssi: -58, value: (t) => [72 + 2 * Math.sin(t / 9) + noise(.8), 'bpm', 0] },
+  { id: 'intersection', name: 'Intersection', kind: 'Traffic lights',       band: '2.4 GHz', wifi: true,  rssi: -63, value: (t) => [['GREEN', 'AMBER', 'RED'][Math.floor(t / 8) % 3], '', null] },
+  { id: 'perimeter',    name: 'Perimeter',    kind: 'Motion + door alarm',  band: '433 MHz', wifi: false, rssi: -71, value: () => ['CLOSED', '', null] },
+  { id: 'gps-node',     name: 'GPS node',     kind: 'Satellite receiver',   band: 'GPS L1/L5', wifi: false, snr: 39, value: () => [12 + (rand() < .15 ? -1 : 0), 'sats', 0] },
+];
+const WIFI = NODES.filter(n => n.wifi);
+
+// Interference strength 0..1 for the k-th Wi-Fi device: ramps up over 8 s, one device after another.
+const I_ON = 16, I_OFF = 33;
+function interference(t, k) {
+  const start = I_ON + k * 1.4;
+  if (t < start) return 0;
+  const up = smooth(clamp((t - start) / 8, 0, 1));
+  const down = 1 - smooth(clamp((t - (I_OFF + k * .8)) / 5, 0, 1));
+  return up * down;
+}
+const OFFLINE = { node: 'building-b', from: 47, to: 60 };
+
+// ── Drones: missions and flight paths (key points, metres, seconds) ────────
+const DRONES = [
+  { id: 'A', name: 'Drone A', color: '#2ee6a6', home: [0.25, -2.1], street: 0.25, waypoints: [[0.6, -1.25], [0.75, 0.7]],
+    keys: [[64, .25, -2.1, 0], [66, .25, -2.1, 1], [70.5, .25, -1.25, 1], [72.5, .6, -1.25, 1], [73.5, .6, -1.25, .3], [75.5, .6, -1.25, .3], [76.5, .6, -1.25, 1],
+           [78, .25, -1.25, 1], [79.5, .25, -.95, 1],
+           // hijack: pulled west into Drone B's airspace
+           [82.5, -.85, -.4, 1], [88, -.88, -.38, 1],
+           // control regained: back to its street, then finishes the mission
+           [91, .25, -.3, 1], [94, .25, .7, 1], [95.5, .75, .7, 1], [96.5, .75, .7, .5], [98, .75, .7, .5], [99, .75, .7, 1], [100.5, .25, .7, 1],
+           [105.5, .25, -2.1, 1], [107, .25, -2.1, 0]] },
+  { id: 'B', name: 'Drone B', color: '#3cc8f5', home: [-0.3, -2.1], street: -0.3, waypoints: [[-0.72, -1.25], [-0.75, 1.0]],
+    keys: [[64, -.3, -2.1, 0], [66, -.3, -2.1, 1], [70.5, -.3, -1.25, 1], [72.5, -.72, -1.25, 1], [73.5, -.72, -1.25, .3], [76, -.72, -1.25, .3], [77, -.72, -1.25, 1],
+           [79, -.3, -1.25, 1], [85, -.3, 1.0, 1], [87, -.75, 1.0, 1], [88, -.75, 1.0, .55], [91, -.75, 1.0, .55], [92, -.75, 1.0, 1], [94, -.3, 1.0, 1],
+           [101.5, -.3, -2.1, 1], [103, -.3, -2.1, 0]] },
+];
+const OFF_ROUTE_M = 0.3;
+for (const d of DRONES) {
+  const xs = [d.street, ...d.waypoints.map(w => w[0])];
+  d.zone = { minX: Math.min(...xs) - OFF_ROUTE_M, maxX: Math.max(...xs) + OFF_ROUTE_M };
+  d.seed = rng(d.id === 'A' ? 9 : 17);
+  d.jit = Array.from({ length: 400 }, () => [(d.seed() - .5) * .025, (d.seed() - .5) * .025, (d.seed() - .5) * .012]);
+}
+function dronePos(d, t) {
+  const k = d.keys;
+  if (t <= k[0][0]) return { x: k[0][1], y: k[0][2], z: 0 };
+  if (t >= k[k.length - 1][0]) { const e = k[k.length - 1]; return { x: e[1], y: e[2], z: e[3] }; }
+  let i = 0; while (k[i + 1][0] < t) i++;
+  const [t0, x0, y0, z0] = k[i], [t1, x1, y1, z1] = k[i + 1];
+  const u = smooth((t - t0) / (t1 - t0));
+  const j = d.jit[Math.floor(t / .6) % d.jit.length], air = (z0 + (z1 - z0) * u) > .05 ? 1 : 0;
+  return { x: x0 + (x1 - x0) * u + j[0] * air, y: y0 + (y1 - y0) * u + j[1] * air, z: Math.max(0, z0 + (z1 - z0) * u + j[2] * air) };
+}
+const offRoute = (d, p) => p.z > .15 && (p.x < d.zone.minX || p.x > d.zone.maxX);
+const outside = (d, p) => Math.max(d.zone.minX - p.x, p.x - d.zone.maxX, 0);
+
+// ── Precompute: readings, sensor states and events over the whole scenario ──
+const readings = Object.fromEntries(NODES.map(n => [n.id, []]));
+let totalReadings = [];   // times of every reading (sensors + drone telemetry), for the counter
+NODES.forEach((n, i) => {
+  const k = WIFI.indexOf(n);
+  let dropped = false;
+  for (let t = .3 + i * .31; t < T_END; t += 2) {
+    if (n.id === OFFLINE.node && t >= OFFLINE.from && t < OFFLINE.to) continue;
+    const I = n.wifi ? interference(t, k) : 0;
+    if (I > .5 && !dropped && rand() < I * .3) { dropped = true; continue; }   // heavy interference loses some readings
+    dropped = false;
+    const [v, unit, dec] = n.value(t, I);
+    const sig = n.snr != null ? n.snr + noise(.8) : n.rssi - I * 33 + noise(1);
+    readings[n.id].push({ t, v, unit, dec, sig });
+    totalReadings.push(t);
+  }
+});
+for (const d of DRONES) for (let t = d.keys[0][0]; t <= d.keys[d.keys.length - 1][0] + 1; t += .6) totalReadings.push(t);
+totalReadings.sort((a, b) => a - b);
+
+const events = [];   // { t, sev, msg, incident? }
+const fmtDbm = v => `${Math.round(v)} dBm`;
+
+// Interference alert: a device counts as affected after 2 s below -85 dBm; clears after 5 s above -82 dBm.
+// Affected devices on the same band are grouped into one incident, announced after a 3 s grouping wait.
+(function simulateAlerts() {
+  const FIRE = -85, CLEAR = -82, FOR_S = 2, CLEAR_S = 5, GROUP_S = 3;
+  const st = Object.fromEntries(WIFI.map(n => [n.id, { badSince: null, goodSince: null, affected: false }]));
+  let inc = null;
+  for (let t = 0; t < T_END; t += .1) {
+    for (const n of WIFI) {
+      const r = [...readings[n.id]].reverse().find(r => r.t <= t);
+      if (!r) continue;
+      const s = st[n.id];
+      if (r.sig < FIRE) { s.badSince ??= r.t; s.goodSince = null; } else s.badSince = null;
+      if (r.sig > CLEAR) s.goodSince ??= r.t; else if (r.sig < CLEAR) s.goodSince = null;
+      if (!s.affected && s.badSince != null && t - s.badSince >= FOR_S) {
+        s.affected = true;
+        if (!inc) inc = { t, sev: 'critical', incident: { pendingAt: t, firingAt: t + GROUP_S, resolvedAt: null, history: [] } };
+      }
+      if (s.affected && s.goodSince != null && t - s.goodSince >= CLEAR_S) s.affected = false;
+    }
+    if (inc) {
+      const aff = WIFI.filter(n => st[n.id].affected);
+      const worst = Math.min(...WIFI.map(n => (readings[n.id].filter(r => r.t <= t && r.t >= inc.t - 5).map(r => r.sig))).flat());
+      const last = inc.incident.history[inc.incident.history.length - 1];
+      if (aff.length && (!last || aff.length > last.n || worst < last.worst - 1)) inc.incident.history.push({ t, n: Math.max(aff.length, last ? last.n : 0), worst: Math.min(worst, last ? last.worst : 0) });
+      if (!aff.length && t > inc.incident.firingAt && inc.incident.resolvedAt == null) {
+        inc.incident.resolvedAt = t;
+        events.push(inc);
+        events.push({ t, sev: 'ok', msg: `2.4 GHz interference resolved: all devices back above ${CLEAR} dBm for ${CLEAR_S} s` });
+        inc = null;
+      }
+    }
+  }
+})();
+
+// Silence: no data for 5 s is an event.
+(function simulateSilence() {
+  const r = readings[OFFLINE.node], n = NODES.find(n => n.id === OFFLINE.node);
+  const lastBefore = r.filter(x => x.t < OFFLINE.from).pop(), firstAfter = r.find(x => x.t >= OFFLINE.to);
+  events.push({ t: lastBefore.t + 5, sev: 'warning', msg: `${n.name} offline: no data for 5 s` });
+  events.push({ t: firstAfter.t, sev: 'ok', msg: `${n.name} back online after ${Math.round(firstAfter.t - lastBefore.t)} s of silence` });
+})();
+
+// Drones: judged against the mission registered before takeoff.
+(function simulateDrones() {
+  for (const d of DRONES) {
+    events.push({ t: d.keys[0][0] + .5, sev: 'info', msg: `${d.name} took off · mission: 2 deliveries` });
+    let off = null, delivered = 0, wasOff = false;
+    for (let t = d.keys[0][0]; t <= d.keys[d.keys.length - 1][0]; t += .6) {
+      const p = dronePos(d, t), o = offRoute(d, p);
+      if (o && !off) { off = t; wasOff = true; events.push({ t: t + .4, sev: 'critical', msg: `${d.name} off route: ${outside(d, p).toFixed(2)} m outside its allowed zone` }); }
+      if (!o && off) { events.push({ t, sev: 'warning', msg: `${d.name} back on route after ${Math.round(t - off)} s off it` }); off = null; }
+      const w = d.waypoints[delivered];
+      if (w && Math.hypot(p.x - w[0], p.y - w[1]) < .08 && p.z < .6) { delivered++; events.push({ t, sev: 'info', msg: `${d.name} delivered package ${delivered}` }); }
+    }
+    const end = d.keys[d.keys.length - 1][0] + 1;
+    events.push(wasOff
+      ? { t: end, sev: 'warning', msg: `${d.name} landed at home · it left its route earlier in this flight: review` }
+      : { t: end, sev: 'ok', msg: `${d.name} landed at home · mission complete` });
+  }
+})();
+events.sort((a, b) => a.t - b.t);
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const fmtT = (t) => { const s = Math.max(0, Math.floor(t)); return `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+
+// Chapters
+CHAPTERS.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'chapter'; b.dataset.i = i;
+  b.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')} · ${fmtT(c.t)}</span><span class="t">${c.title}</span><span class="fill"></span>`;
+  b.onclick = () => seek(c.t + .01);
+  $('chapters').appendChild(b);
+});
+const chapterAt = (t) => CHAPTERS.reduce((a, c, i) => (t >= c.t ? i : a), 0);
+
+// Sensor cards
+for (const n of NODES) {
+  const el = document.createElement('div');
+  el.className = 'card'; el.id = 'card-' + n.id;
+  el.innerHTML = `<div class="row"><span class="name">${n.name}</span><span class="chip">${n.band}</span></div>
+    <div class="kind">${n.kind}</div>
+    <div class="value">–</div><div class="signal">–</div>
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" /></svg>
+    <div class="row" style="margin-top:6px"><span class="pill ok">OK</span><span class="chip last" style="border:none;padding:0"></span></div>`;
+  $('cards').appendChild(el);
+}
+function renderCards(t) {
+  for (const n of NODES) {
+    const el = $('card-' + n.id), rs = readings[n.id], i = rs.findLastIndex(r => r.t <= t);
+    const r = rs[i];
+    const silent = !r || t - r.t > 5;
+    const wifiK = WIFI.indexOf(n);
+    const degraded = !silent && n.wifi && r.sig < -85;
+    el.className = 'card' + (silent && r ? ' offline' : degraded ? ' degraded' : '');
+    if (!r) continue;
+    el.querySelector('.value').innerHTML = r.dec == null ? r.v : `${r.v.toFixed(r.dec)}<small>${r.unit}</small>`;
+    el.querySelector('.signal').textContent = n.snr != null ? `L1 signal ${r.sig.toFixed(1)} dB-Hz` : `radio ${fmtDbm(r.sig)}`;
+    const pill = el.querySelector('.pill');
+    pill.className = 'pill ' + (silent ? 'offline' : degraded ? 'degraded' : 'ok');
+    pill.textContent = silent ? 'OFFLINE' : degraded ? 'INTERFERENCE' : 'OK';
+    el.querySelector('.last').textContent = silent ? `last data ${fmtT(r.t)}` : '';
+    const win = rs.slice(Math.max(0, i - 24), i + 1);
+    const lo = n.snr != null ? 20 : -100, hi = n.snr != null ? 45 : -45;
+    const pts = win.map((w, j) => `${(j / 24) * 100},${30 - clamp((w.sig - lo) / (hi - lo), 0, 1) * 28 - 1}`).join(' ');
+    const pl = el.querySelector('polyline');
+    pl.setAttribute('points', pts);
+    pl.setAttribute('stroke', silent ? '#5b6b80' : degraded ? '#ff5a5a' : '#2fd18b');
+  }
+}
+
+// Events
+let shownKey = '';
+function renderEvents(t) {
+  const visible = events.filter(e => e.t <= t);
+  const nRead = totalReadings.filter(x => x <= t).length;
+  $('n-readings').textContent = nRead.toLocaleString();
+  $('n-events').textContent = visible.length;
+  const key = visible.map(e => e.t).join() + '|' + visible.map(e => e.incident ? incidentState(e, t).state : '').join();
+  if (key === shownKey) { updateIncidentText(t); return; }
+  shownKey = key;
+  const ol = $('log'); ol.innerHTML = '';
+  if (!visible.length) { ol.innerHTML = '<li class="empty" style="display:block">Nothing to report. Readings are arriving and everything is healthy.</li>'; return; }
+  for (const e of [...visible].reverse()) {
+    const li = document.createElement('li');
+    li.className = 'sev-' + e.sev;
+    li.innerHTML = `<span class="time">${fmtT(e.t)}</span><span class="dot"></span><span class="msg"></span><span class="state"></span>`;
+    if (e.incident) li.dataset.incident = '1';
+    else li.querySelector('.msg').textContent = e.msg;
+    ol.appendChild(li);
+  }
+  updateIncidentText(t);
+}
+function incidentState(e, t) {
+  const inc = e.incident;
+  const h = inc.history.filter(x => x.t <= t).pop() || inc.history[0];
+  const state = inc.resolvedAt != null && t >= inc.resolvedAt ? 'resolved' : t >= inc.firingAt ? 'firing' : 'pending';
+  return { state, h };
+}
+function updateIncidentText(t) {
+  const li = document.querySelector('#log li[data-incident]');
+  if (!li) return;
+  const e = events.find(e => e.incident);
+  const { state, h } = incidentState(e, t);
+  li.querySelector('.msg').textContent = `INCIDENT · 2.4 GHz interference: ${h.n} device${h.n > 1 ? 's' : ''} affected · worst ${fmtDbm(h.worst)}`;
+  const s = li.querySelector('.state'); s.className = 'state ' + state; s.textContent = state.toUpperCase();
+  li.className = 'sev-' + (state === 'resolved' ? 'ok' : 'critical');
+}
+// The incident row appears as soon as it is pending, not only once resolved.
+for (const e of events) if (e.incident) e.t = e.incident.pendingAt;
+events.sort((a, b) => a.t - b.t);
+
+// Drone status boxes
+for (const d of DRONES) {
+  const el = document.createElement('div');
+  el.className = 'drone' + (d.id === 'B' ? ' b' : ''); el.id = 'drone-' + d.id;
+  el.innerHTML = `<b>${d.name}</b><div class="st">waiting for takeoff</div>`;
+  $('drones').appendChild(el);
+}
+
+// Map
+const canvas = $('map'), ctx = canvas.getContext('2d');
+const WORLD = { minX: -1.25, maxX: 1.25, minY: -2.4, maxY: 1.35 };
+let view = null;
+function resize() {
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pad = 22, sx = (r.width - pad * 2) / (WORLD.maxX - WORLD.minX), sy = (r.height - pad * 2) / (WORLD.maxY - WORLD.minY);
+  const s = Math.min(sx, sy);
+  view = { w: r.width, h: r.height, s, ox: (r.width - s * (WORLD.maxX - WORLD.minX)) / 2, oy: (r.height - s * (WORLD.maxY - WORLD.minY)) / 2 };
+  draw(now);
+}
+const P = (x, y) => [view.ox + (x - WORLD.minX) * view.s, view.oy + (WORLD.maxY - y) * view.s];
+
+function drawCity() {
+  // building blocks around the two streets
+  ctx.fillStyle = '#0f1822'; ctx.strokeStyle = '#18242f'; ctx.lineWidth = 1;
+  const blocks = [[-1.2, -1.9, -0.95, -1.45], [-1.2, -0.9, -1.0, 0.45], [-1.2, 0.75, -0.95, 1.3], [0.95, -1.9, 1.2, -1.45], [1.0, -0.9, 1.2, 0.4], [0.98, 0.95, 1.2, 1.3], [-0.12, -1.85, 0.1, -1.4], [-0.12, -0.85, 0.08, 0.55], [-0.12, 0.85, 0.1, 1.3]];
+  for (const [x0, y0, x1, y1] of blocks) { const [a, b] = P(x0, y1), [c, e] = P(x1, y0); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, e - b, 4) : ctx.rect(a, b, c - a, e - b); ctx.fill(); ctx.stroke(); }
+}
+function drawMission(d, off) {
+  const [zx0, zy0] = P(d.zone.minX, WORLD.maxY - .05), [zx1, zy1] = P(d.zone.maxX, -2.3);
+  ctx.fillStyle = off ? 'rgba(255,77,77,0.07)' : d.color + '0f';
+  ctx.fillRect(zx0, zy0, zx1 - zx0, zy1 - zy0);
+  ctx.setLineDash([4, 6]); ctx.strokeStyle = off ? '#ff4d4dcc' : d.color + '55'; ctx.lineWidth = off ? 1.8 : 1;
+  for (const x of [zx0, zx1]) { ctx.beginPath(); ctx.moveTo(x, zy0); ctx.lineTo(x, zy1); ctx.stroke(); }
+  // planned route: up the street, out to each waypoint and back, then home
+  const route = [d.home]; for (const w of d.waypoints) route.push([d.street, w[1]], w, [d.street, w[1]]); route.push(d.home);
+  ctx.setLineDash([7, 6]); ctx.strokeStyle = d.color + '88'; ctx.lineWidth = 1.3; ctx.beginPath();
+  route.forEach((p, i) => { const [x, y] = P(p[0], p[1]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
+  // home pad
+  const [hx, hy] = P(...d.home);
+  ctx.strokeStyle = d.color + 'aa'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(hx, hy, 10, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = d.color + 'cc'; ctx.font = '700 9px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(d.id, hx, hy + .5);
+}
+function drawWaypoints(d, t) {
+  const delivered = events.filter(e => e.t <= t && e.msg && e.msg.startsWith(d.name + ' delivered')).length;
+  d.waypoints.forEach((w, i) => {
+    const [x, y] = P(...w), done = i < delivered;
+    ctx.shadowColor = d.color; ctx.shadowBlur = done ? 12 : 6;
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fillStyle = done ? d.color : '#05080d'; ctx.fill();
+    ctx.strokeStyle = d.color; ctx.lineWidth = 1.6; ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.fillStyle = done ? '#05080d' : d.color; ctx.font = '700 9px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(done ? '✓' : String(i + 1), x, y + .5);
+  });
+}
+function drawDrone(d, t) {
+  const t0 = d.keys[0][0]; if (t < t0) return null;
+  const pts = []; for (let s = t0; s <= t; s += .3) pts.push(dronePos(d, s)); pts.push(dronePos(d, t));
+  for (let i = 1; i < pts.length; i++) {
+    const a = P(pts[i - 1].x, pts[i - 1].y), b = P(pts[i].x, pts[i].y), o = offRoute(d, pts[i]);
+    ctx.strokeStyle = o ? '#ff4d4d' : d.color; ctx.globalAlpha = o ? 1 : .35 + .65 * (i / pts.length);
+    ctx.lineWidth = o ? 3 : 2.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const p = pts[pts.length - 1], [x, y] = P(p.x, p.y), off = offRoute(d, p), col = off ? '#ff4d4d' : d.color;
+  const landed = t > d.keys[0][0] + 3 && p.z < .05;
+  ctx.globalAlpha = landed ? .55 : 1;
+  ctx.shadowColor = col; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.arc(x, y, 15 + 2 * Math.sin(t * 4), 0, Math.PI * 2); ctx.strokeStyle = col + '44'; ctx.lineWidth = 5; ctx.stroke();
+  ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i - Math.PI / 6; const px = x + 8 * Math.cos(a), py = y + 8 * Math.sin(a); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.closePath(); ctx.fillStyle = col + '40'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke(); ctx.shadowBlur = 0;
+  ctx.fillStyle = col; ctx.font = '700 10px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(off ? `${d.name.toUpperCase()} · OFF ROUTE` : d.name.toUpperCase(), x, y - 14);
+  ctx.fillStyle = '#000000b0'; ctx.fillRect(x + 12, y - 6, 46, 14);
+  ctx.fillStyle = col; ctx.font = '600 9px ui-monospace, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(`z ${p.z.toFixed(2)} m`, x + 15, y + 1);
+  ctx.globalAlpha = 1;
+  return { p, off, landed };
+}
+function draw(t) {
+  if (!view) return;
+  ctx.clearRect(0, 0, view.w, view.h);
+  // grid
+  ctx.strokeStyle = '#0d1620'; ctx.lineWidth = 1;
+  for (let gx = -1; gx <= 1; gx += .5) { const [x] = P(gx, 0); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, view.h); ctx.stroke(); }
+  for (let gy = -2; gy <= 1; gy += .5) { const [, y] = P(0, gy); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(view.w, y); ctx.stroke(); }
+  drawCity();
+  const states = {};
+  for (const d of DRONES) { const p = t >= d.keys[0][0] ? dronePos(d, t) : null; states[d.id] = { off: p ? offRoute(d, p) : false }; drawMission(d, states[d.id].off); }
+  for (const d of DRONES) drawWaypoints(d, t);
+  for (const d of DRONES) {
+    const s = drawDrone(d, t);
+    const el = $('drone-' + d.id), st = el.querySelector('.st');
+    el.classList.toggle('off', !!(s && s.off));
+    if (!s) st.textContent = t < d.keys[0][0] ? 'waiting for takeoff' : '';
+    else if (s.landed) st.textContent = 'landed at home';
+    else if (s.off) st.textContent = `OFF ROUTE · ${outside(d, s.p).toFixed(2)} m outside zone`;
+    else st.textContent = `on route · x ${s.p.x.toFixed(2)} y ${s.p.y.toFixed(2)} z ${s.p.z.toFixed(2)}`;
+  }
+  if (t < DRONES[0].keys[0][0]) {
+    ctx.fillStyle = '#5b6b80'; ctx.font = '13px ' + getComputedStyle(document.body).fontFamily; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`Drones take off at ${fmtT(DRONES[0].keys[0][0])}`, view.w / 2, view.h / 2);
+  }
+}
+
+// ── Playback ────────────────────────────────────────────────────────────────
+let now = 0, playing = true, speed = 1, last = performance.now();
+function renderAll(t) {
+  $('clock').textContent = fmtT(t);
+  const c = chapterAt(t), ch = CHAPTERS[c];
+  $('cap-pattern').textContent = ch.pattern; $('cap-title').textContent = ch.title; $('cap-text').textContent = ch.text;
+  document.querySelectorAll('.chapter').forEach((b, i) => {
+    const a = CHAPTERS[i].t, z = i + 1 < CHAPTERS.length ? CHAPTERS[i + 1].t : T_END;
+    b.classList.toggle('active', i === c);
+    b.querySelector('.fill').style.width = `${clamp((t - a) / (z - a), 0, 1) * 100}%`;
+  });
+  renderCards(t); renderEvents(t); draw(t);
+}
+function seek(t) { now = clamp(t, 0, T_END); shownKey = ''; renderAll(now); }
+function frame(ts) {
+  const dt = Math.min(.25, (ts - last) / 1000); last = ts;
+  if (playing) { now += dt * speed; if (now >= T_END + 3) now = 0, shownKey = ''; renderAll(Math.min(now, T_END)); }
+  requestAnimationFrame(frame);
+}
+function setPlaying(p) { playing = p; $('play').textContent = p ? '❚❚ Pause' : '▶ Play'; $('play').setAttribute('aria-label', p ? 'Pause' : 'Play'); }
+$('play').onclick = () => setPlaying(!playing);
+$('restart').onclick = () => { seek(0); setPlaying(true); };
+document.querySelectorAll('.speed').forEach(b => b.onclick = () => {
+  speed = Number(b.dataset.speed);
+  document.querySelectorAll('.speed').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+});
+document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
+new ResizeObserver(resize).observe(canvas.parentElement);
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
