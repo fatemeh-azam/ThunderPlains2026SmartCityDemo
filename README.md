@@ -29,7 +29,7 @@ The same patterns apply well beyond drones: microservices on queues, webhooks fr
 
 ## The demo
 
-Open the [live demo](https://fatemeh-azam.github.io/ThunderPlains2026SmartCityDemo/), or download `index.html` and open it in any modern browser. It plays five chapters (about two and a half minutes in all), with play, pause, speed and chapter controls:
+Open the [live demo](https://fatemeh-azam.github.io/ThunderPlains2026SmartCityDemo/index-2.html), or download `index.html` and open it in any modern browser. It plays five chapters (about two and a half minutes in all), with play, pause, speed and chapter controls:
 
 1. **A calm city.** Six different devices publish to one bus, in one message shape.
 2. **Radio interference.** Four Wi-Fi devices degrade one after another; the operator sees one grouped incident, not a flood of alerts. GPS and the 433 MHz alarm stay healthy.
