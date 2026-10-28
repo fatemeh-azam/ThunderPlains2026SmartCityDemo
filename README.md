@@ -2,7 +2,7 @@
 
 **Building Resilient Event-Driven Systems** · ThunderPlains 2026, Oklahoma City · Fatemeh Azam
 
-▶ **[Watch the demo in your browser](https://fatemeh-azam.github.io/ThunderPlains2026SmartCityDemo/)**
+▶ **[Watch the demo in your browser](https://fatemeh-azam.github.io/ThunderPlains2026SmartCityDemo/index-2.html)**
 
 This repository accompanies my ThunderPlains 2026 talk. It contains the slides and a static, browser-only walkthrough of the four live demos. Everything in the demo is scripted with synthetic data.
 
