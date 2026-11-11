@@ -46,6 +46,5 @@ Watch the counters: hundreds of readings arrive, well over a thousand junk messa
 ## About
 
 Fatemeh Azam, Senior Software Engineer and Researcher, Oklahoma Cyber Innovation Institute (OCII), The University of Tulsa.
-More about my projects: [your website](https://example.com)
 
 © 2026 Fatemeh Azam. Shared for viewing and learning; please ask before reusing the slides or the demo.
